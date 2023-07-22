@@ -1,0 +1,65 @@
+---
+name: Build
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "10 2 * * 0"
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  # Test the image builds and works correctly.
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Test building image.
+        run: docker build -t docker-ansible .
+
+      - name: Run the built image.
+        run: >-
+          docker run --name test-container -d --privileged
+          -v /sys/fs/cgroup:/sys/fs/cgroup:rw --cgroupns=host
+          docker-ansible
+
+      - name: Verify Ansible is accessible in the built image.
+        run: docker exec --tty test-container env TERM=xterm ansible --version
+
+  # If on master branch, build and release image.
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    needs: test
+    if: github.ref == 'refs/heads/master'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@65b78e6e13532edd9afa3aa52ac7964289d1a9c1
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ github.repository }}:latest
