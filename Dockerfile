@@ -29,10 +29,10 @@ RUN dnf -y install rpm dnf-plugins-core \
  && dnf clean all
 
 # Upgrade pip to latest version.
-RUN pip3 install --upgrade pip
+RUN python3 -m pip install --upgrade pip
 
 # Install Ansible via Pip.
-RUN pip3 install $pip_packages
+RUN python3 -m pip install $pip_packages
 
 # Disable requiretty.
 RUN sed -i -e 's/^\(Defaults\s*requiretty\)/#--- \1/'  /etc/sudoers
